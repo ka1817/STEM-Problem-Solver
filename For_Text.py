@@ -1,9 +1,6 @@
 import streamlit as st
 from dotenv import load_dotenv
 import os
-import tempfile
-import base64
-from gtts import gTTS  # ✅ Use gTTS instead of pyttsx3
 from langchain_groq import ChatGroq
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
@@ -12,7 +9,7 @@ from langchain.prompts import PromptTemplate
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# ✅ Exact optimized prompt as provided
+# Define the best-optimized prompt for structured problem-solving
 optimized_prompt = PromptTemplate(
     input_variables=["problem"],
     template=(
@@ -42,6 +39,32 @@ optimized_prompt = PromptTemplate(
         "   - 🔄 Verify the answer using an alternative method (if possible).\n"
         "   - 🏗️ Provide a real-world analogy or intuition behind the result.\n\n"
 
+        "💡 **Example Solutions:**\n"
+        "---\n"
+        "🔢 **Example 1:**\n"
+        "**Problem:** Find the integral of x.\n\n"
+        "**Solution:**\n"
+        "1️⃣ **Understanding the Problem:** Compute the indefinite integral of f(x) = x.\n"
+        "2️⃣ **Relevant Concepts:** Use the power rule: ∫x^n dx = (x^(n+1))/(n+1) + C.\n"
+        "3️⃣ **Step-by-Step Solution:**\n"
+        "   - Recognize x as x^1.\n"
+        "   - Apply the power rule: increase the exponent by 1, giving x², then divide by the new exponent.\n"
+        "   - Add the constant of integration, C.\n"
+        "4️⃣ **Final Answer:** (x²)/2 + C.\n"
+        "5️⃣ **Verification & Insights:** Differentiating (x²)/2 gives x, confirming correctness.\n\n"
+        "---\n"
+        "🚗 **Example 2:**\n"
+        "**Problem:** A car accelerates from rest at 5 m/s². Find its velocity after 4 seconds.\n\n"
+        "**Solution:**\n"
+        "1️⃣ **Understanding the Problem:** The car starts from rest and accelerates uniformly.\n"
+        "2️⃣ **Relevant Concepts:** Use kinematic equation: v = u + at.\n"
+        "3️⃣ **Step-by-Step Solution:**\n"
+        "   - Given: u = 0 m/s, a = 5 m/s², t = 4 s.\n"
+        "   - Apply formula: v = 0 + (5 × 4) = 20 m/s.\n"
+        "4️⃣ **Final Answer:** v = 20 m/s.\n"
+        "5️⃣ **Verification & Insights:** The result aligns with expected acceleration; using v² = u² + 2as also gives v = 20 m/s.\n\n"
+        "---\n\n"
+
         "🎯 **Now, solve the following problem using this structured approach:**\n"
         "**Problem:** {problem}\n\n"
         "**Solution:**"
@@ -52,72 +75,35 @@ optimized_prompt = PromptTemplate(
 llm = ChatGroq(api_key=GROQ_API_KEY, model_name="gemma2-9b-it")
 llm_chain = LLMChain(llm=llm, prompt=optimized_prompt)
 
-# Function to generate speech using gTTS and return Base64-encoded audio
-def text_to_speech(text):
-    """Generate gTTS audio and return Base64 encoded string."""
-    tts = gTTS(text, lang="en")
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
-        tts.save(temp_audio.name)
-        with open(temp_audio.name, "rb") as audio_file:
-            audio_bytes = audio_file.read()
-            encoded_audio = base64.b64encode(audio_bytes).decode()
-        os.remove(temp_audio.name)
-    return encoded_audio
-
 # Streamlit UI Design
 st.set_page_config(page_title="STEM Solver 🤖", layout="centered", page_icon="🧠")
 
-st.markdown("<h1 style='text-align: center;'>📚 STEM Problem Solver 🤖</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size:18px;'>Enter a math or physics problem, and I'll solve it step by step! 🚀</p>", unsafe_allow_html=True)
+st.markdown(
+    "<h1 style='text-align: center;'>📚 STEM Problem Solver 🤖</h1>", 
+    unsafe_allow_html=True
+)
+st.markdown(
+    "<p style='text-align: center; font-size:18px;'>Enter a math or physics problem, and I'll solve it step by step! 🚀</p>", 
+    unsafe_allow_html=True
+)
 
 # User Input
 problem = st.text_area("📝 Enter your problem:", placeholder="e.g., What is the integral of x?", height=100)
 
-# Solve (Text) Button
-if st.button("🔍 Solve (Text)"):
+# Solve Button
+if st.button("🔍 Solve"):
     if problem.strip():
         with st.spinner("Thinking... 🤔"):
             response = llm_chain.invoke({"problem": problem})
-            solution_text = response['text']
             st.success("✅ Solution Found!")
-            
             st.markdown("### ✨ Solution:")
             st.markdown(f"<div style='background-color:#222831; padding:15px; border-radius:10px; color:white;'>"
-                        f"<p style='font-size:16px;'>{solution_text}</p></div>", unsafe_allow_html=True)
-    else:
-        st.warning("⚠️ Please enter a valid problem.")
-
-# Solve (Speech) Button
-if st.button("🔊 Solve (Speech)"):
-    if problem.strip():
-        with st.spinner("Speaking... 🎤"):
-            response = llm_chain.invoke({"problem": problem})
-            solution_text = response['text']
-
-            audio_base64 = text_to_speech(solution_text)  # Get Base64 audio
-            audio_html = f"""
-                <audio controls>
-                    <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
-                    Your browser does not support the audio element.
-                </audio>
-            """
-            st.success("✅ Solve (Speech) Started!")
-            st.markdown(audio_html, unsafe_allow_html=True)
-
-            # 📥 Add a download button for mobile users
-            audio_file_name = "solution.mp3"
-            with open(audio_file_name, "wb") as file:
-                file.write(base64.b64decode(audio_base64))
-            
-            with open(audio_file_name, "rb") as file:
-                st.download_button(
-                    label="📥 Download Audio",
-                    data=file,
-                    file_name="solution.mp3",
-                    mime="audio/mp3"
-                )
+                        f"<p style='font-size:16px;'>{response['text']}</p></div>", unsafe_allow_html=True)
     else:
         st.warning("⚠️ Please enter a valid problem.")
 
 # Footer
-st.markdown("<br><p style='text-align:center; font-size:14px;'>🚀 Created with ❤️ by an AI-powered tutor! 📖</p>", unsafe_allow_html=True)
+st.markdown(
+    "<br><p style='text-align:center; font-size:14px;'>🚀 Created with ❤️ by an AI-powered tutor! 📖</p>", 
+    unsafe_allow_html=True
+)
